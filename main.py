@@ -186,6 +186,9 @@ def predict_test():
 
   results = model.predict_proba(test_data)
   print_results(results)
+""""""""
+# predict test ends.
+""""""""
 
 def start():
   try:
