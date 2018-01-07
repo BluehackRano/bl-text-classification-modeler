@@ -94,7 +94,7 @@ def retrieve_products(class_code, keywords):
     if keyword_data == '':
       continue
     dataset = retrieve_dataset(keyword_data)
-    print('retrieve_dataset() Done : ' + keyword)
+    print('retrieve_dataset() Done : ' + keyword['text'])
     convert_dataset_as_fasttext(class_code, dataset)
 
 def retrieve_dataset(keyword):
@@ -122,6 +122,8 @@ def retrieve_dataset(keyword):
   return dataset
 
 def make_dataset():
+  print('make_dataset')
+
   classes = text_api.get_classes()
   for class_code in classes:
     retrieve_keywords(class_code['code'])
@@ -166,13 +168,32 @@ def make_model():
 
   print_model_results(result)
 
+""""""""
+# predict test
+""""""""
+def print_results(results):
+    for result in results:
+        for data in result:
+            print("Class Code : " + data[0] + " / proba : " + str(data[1]))
+
+def predict_test():
+  model_data = TEXT_CLASSIFICATION_MODEL + '.bin'
+
+  model = fasttext.load_model(model_data)
+  test_data = ['v넥 허니니트 니트 긴팔 v 허니니트 knit 반가다 브이넥 (니트)#12게이지#루즈핏#여리여리',
+               '큐트체크미니스커트(밴딩) 버클 데일리 벨트미니스커트(도톰, A라인)  # 벨트탈부착#속바지 체크 12-2김유난 핫바디 미니스커트  #치마바지',
+               '겨울원피스 베이비돌 원피스 김다은 11-2김세희 12-1김세희 꽃원피스 걸스 벨벳뷔스티에OPS 미니원피스']
+
+  results = model.predict_proba(test_data)
+  print_results(results)
+
 def start():
   try:
-    # make_dataset()
-    # make_model()
-    # predict_test()
-
+    make_dataset()
+    make_model()
     save_model_to_storage()
+
+    predict_test()
 
   except Exception as e:
     log.error(str(e))
