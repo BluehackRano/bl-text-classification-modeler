@@ -8,6 +8,8 @@ from bluelens_spawning_pool import spawning_pool
 from stylelens_dataset.texts import Texts
 from stylelens_product.products import Products
 
+from random import shuffle
+
 SPAWN_ID = os.environ['SPAWN_ID']
 REDIS_SERVER = os.environ['REDIS_SERVER']
 REDIS_PASSWORD = os.environ['REDIS_PASSWORD']
@@ -26,6 +28,9 @@ storage = s3.S3(AWS_ACCESS_KEY, AWS_SECRET_ACCESS_KEY)
 
 text_api = Texts()
 product_api = Products()
+
+DATASET_LABEL_PREFIX = '__label__'
+generated_datasets = []
 
 def delete_pod():
   log.info('exit: ' + SPAWN_ID)
@@ -55,18 +60,26 @@ def retrieve_keywords(class_code):
     else:
       offset = offset + limit
 
-def convert_dataset_as_fasttext(class_code, dataset):
-  #Todo: Need to implement by rano@bljuehack.net
-  # Example)
-  # class_code : '1'
-  # datasets[0] : ['aaa', 'bbb', 'ccc', 'ddd]
-  # datasets[1] : ['aaa', 'bbbc', 'ccca', 'ddda']
-  # datasets[n] :
+def convert_dataset_as_fasttext(class_code, datasets):
   log.info('convert_dataset_as_fasttext')
+
+  for dataset in datasets:
+    count = len(dataset)
+    if count > 5:
+      count = 5
+    for n in range(count):
+      shuffle(dataset)
+
+      dataset_str = DATASET_LABEL_PREFIX + class_code + ' ' + ' '.join(str(x) for x in dataset)
+      generated_datasets.append(dataset_str)
 
 def retrieve_products(class_code, keywords):
   for keyword in keywords:
-    dataset = retrieve_dataset(keyword['text'])
+    keyword_data = keyword['text']
+    keyword_data.strip()
+    if keyword_data == '':
+      continue
+    dataset = retrieve_dataset(keyword_data)
     convert_dataset_as_fasttext(class_code, dataset)
 
 def retrieve_dataset(keyword):
@@ -83,7 +96,7 @@ def retrieve_dataset(keyword):
       # data.extend(product['tags'])
       data.extend(product['cate'])
       data = list(set(data))
-      print('' + str(product['_id']) + ':' + str(data))
+      print('' + str(product['_id']) + ': ' + keyword + ' / ' + str(data))
       dataset.append(data)
 
     if limit > len(products):
@@ -97,6 +110,28 @@ def make_dataset():
   classes = text_api.get_classes()
   for class_code in classes:
     retrieve_keywords(class_code['code'])
+
+  shuffle(generated_datasets)
+  print(generated_datasets)
+
+  datasets_total = len(generated_datasets)
+  eval_data_count = datasets_total / 6
+
+  # datasets for evaluation
+  f = open("text_classification_model.eval", 'w')
+  for dataset in range(0, eval_data_count):
+    f.write(dataset + "\n")
+  f.close()
+
+  # datasets for training
+  f = open("text_classification_model.train", 'w')
+  for dataset in range(eval_data_count, datasets_total):
+    f.write(dataset + "\n")
+  f.close()
+
+  print('Generating dataset Done !!')
+
+  #Todo: make_model here
 
 def make_model():
   #Todo: Need to implement by rano@bljuehack.net
