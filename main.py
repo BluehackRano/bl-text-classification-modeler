@@ -3,6 +3,7 @@ from __future__ import print_function
 import os
 from util import s3
 import redis
+import fasttext
 from bluelens_log import Logging
 from bluelens_spawning_pool import spawning_pool
 from stylelens_dataset.texts import Texts
@@ -29,6 +30,7 @@ storage = s3.S3(AWS_ACCESS_KEY, AWS_SECRET_ACCESS_KEY)
 text_api = Texts()
 product_api = Products()
 
+TEXT_CLASSIFICATION_MODEL = 'text_classification_model'
 DATASET_LABEL_PREFIX = '__label__'
 generated_datasets = []
 
@@ -137,16 +139,29 @@ def make_dataset():
 
   print('Generating dataset Done !!')
 
-  #Todo: make_model here
+def print_model_results(result):
+    print("Number of examples for test: " + str(result.nexamples))
+    print("P@{}\t{:.3f}".format(1, result.precision))
+    print("R@{}\t{:.3f}".format(1, result.recall))
 
 def make_model():
-  #Todo: Need to implement by rano@bljuehack.net
   log.info('make_model')
+
+  train_data = TEXT_CLASSIFICATION_MODEL + '.train'
+  valid_data = TEXT_CLASSIFICATION_MODEL + '.eval'
+
+  model = fasttext.supervised(train_data, TEXT_CLASSIFICATION_MODEL, epoch=25, lr=1.0)
+  result = model.test(valid_data)
+
+  print_model_results(result)
 
 def start():
   try:
-    make_dataset()
+    # make_dataset()
     make_model()
+
+    # predict_test()
+
     save_model_to_storage()
 
   except Exception as e:
