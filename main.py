@@ -21,7 +21,7 @@ options = {
   'REDIS_SERVER': REDIS_SERVER,
   'REDIS_PASSWORD': REDIS_PASSWORD
 }
-log = Logging(options, tag='bl-object-classifier')
+log = Logging(options, tag='bl-text-classification-modeler')
 rconn = redis.StrictRedis(REDIS_SERVER, decode_responses=True, port=6379, password=REDIS_PASSWORD)
 
 storage = s3.S3(AWS_ACCESS_KEY, AWS_SECRET_ACCESS_KEY)
@@ -74,12 +74,14 @@ def convert_dataset_as_fasttext(class_code, datasets):
       generated_datasets.append(dataset_str)
 
 def retrieve_products(class_code, keywords):
+  i = 0
   for keyword in keywords:
     keyword_data = keyword['text']
     keyword_data.strip()
     if keyword_data == '':
       continue
     dataset = retrieve_dataset(keyword_data)
+    print('retrieve_dataset() Done : ' + keyword)
     convert_dataset_as_fasttext(class_code, dataset)
 
 def retrieve_dataset(keyword):
@@ -96,7 +98,7 @@ def retrieve_dataset(keyword):
       # data.extend(product['tags'])
       data.extend(product['cate'])
       data = list(set(data))
-      print('' + str(product['_id']) + ': ' + keyword + ' / ' + str(data))
+      # print('' + str(product['_id']) + ': ' + keyword + ' / ' + str(data))
       dataset.append(data)
 
     if limit > len(products):
@@ -112,21 +114,25 @@ def make_dataset():
     retrieve_keywords(class_code['code'])
 
   shuffle(generated_datasets)
-  print(generated_datasets)
+  # print(generated_datasets)
 
   datasets_total = len(generated_datasets)
-  eval_data_count = datasets_total / 6
+  eval_data_count = int(datasets_total / 6)
+
+  print(datasets_total)
+  print(datasets_total - eval_data_count)
+  print(eval_data_count)
 
   # datasets for evaluation
   f = open("text_classification_model.eval", 'w')
-  for dataset in range(0, eval_data_count):
-    f.write(dataset + "\n")
+  for i in range(0, eval_data_count):
+    f.write(generated_datasets[i] + '\n')
   f.close()
 
   # datasets for training
   f = open("text_classification_model.train", 'w')
-  for dataset in range(eval_data_count, datasets_total):
-    f.write(dataset + "\n")
+  for i in range(eval_data_count, datasets_total):
+    f.write(generated_datasets[i] + '\n')
   f.close()
 
   print('Generating dataset Done !!')
