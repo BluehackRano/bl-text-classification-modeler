@@ -17,6 +17,8 @@ REDIS_PASSWORD = os.environ['REDIS_PASSWORD']
 RELEASE_MODE = os.environ['RELEASE_MODE']
 AWS_ACCESS_KEY = os.environ['AWS_ACCESS_KEY'].replace('"', '')
 AWS_SECRET_ACCESS_KEY = os.environ['AWS_SECRET_ACCESS_KEY'].replace('"', '')
+AWS_TEXT_CLASSIFICATION_MODEL_BUCKET = 'bluelens-style-model'
+AWS_BUCKET_CLASSIFICATION_TEXT_PATH = 'classification/text/'
 
 options = {
   'REDIS_SERVER': REDIS_SERVER,
@@ -47,8 +49,17 @@ def delete_pod():
   spawn.delete(data)
 
 def save_model_to_storage():
-  #Todo: Need to implement by rano@bljuehack.net
   log.info('save_model_to_storage')
+
+  model_file_name = TEXT_CLASSIFICATION_MODEL + '.bin'
+
+  file = os.path.join(os.getcwd(), model_file_name)
+  try:
+    return storage.upload_file_to_bucket(AWS_TEXT_CLASSIFICATION_MODEL_BUCKET, file,
+                                         AWS_BUCKET_CLASSIFICATION_TEXT_PATH + model_file_name)
+  except:
+    log.error('upload error')
+    return None
 
 def retrieve_keywords(class_code):
   offset = 0
@@ -158,8 +169,7 @@ def make_model():
 def start():
   try:
     # make_dataset()
-    make_model()
-
+    # make_model()
     # predict_test()
 
     save_model_to_storage()
