@@ -61,12 +61,12 @@ def save_model_to_storage():
     log.error('upload error')
     return None
 
-def retrieve_keywords(class_code):
+def retrieve_keywords(text_code):
   offset = 0
   limit = 100
   while True:
-    keywords = text_api.get_texts(class_code, offset=offset, limit=limit)
-    retrieve_products(class_code, keywords)
+    keywords = text_api.get_texts(text_code, offset=offset, limit=limit)
+    retrieve_products(text_code, keywords)
 
     if limit > len(keywords):
       break
@@ -124,8 +124,8 @@ def make_dataset():
   print('make_dataset')
 
   classes = text_api.get_classes()
-  for class_code in classes:
-    retrieve_keywords(class_code['code'])
+  for text_code in classes:
+    retrieve_keywords(text_code['code'])
 
   shuffle(generated_datasets)
   # print(generated_datasets)
@@ -195,7 +195,7 @@ def start():
     make_model()
     save_model_to_storage()
 
-    predict_test()
+    # predict_test()
 
   except Exception as e:
     log.error(str(e))
