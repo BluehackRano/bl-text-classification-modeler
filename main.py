@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import os
+import codecs
 from util import s3
 import redis
 import fasttext
@@ -61,6 +62,21 @@ def save_model_to_storage():
     log.error('upload error')
     return None
 
+def save_tmp_text_dataset_to_local(text_code, datasets):
+
+  # tmp_text_dataset
+  try:
+    f = codecs.open("tmp_text_dataset", 'a', 'utf-8')
+    for dataset in datasets:
+      count = len(dataset)
+      dataset_str = DATASET_LABEL_PREFIX + text_code + ' ' + ' '.join(str(x) for x in dataset)
+      print(dataset_str)
+      f.write(dataset_str + '\n')
+  except IOError:
+    print('tmp_text_dataset write error !!!')
+  finally:
+    f.close()
+
 def retrieve_keywords(text_code):
   offset = 0
   limit = 100
@@ -73,20 +89,23 @@ def retrieve_keywords(text_code):
     else:
       offset = offset + limit
 
-def convert_dataset_as_fasttext(class_code, datasets):
+def convert_dataset_as_fasttext(text_code, datasets):
   log.info('convert_dataset_as_fasttext')
+
+  save_tmp_text_dataset_to_local(text_code, datasets)
 
   for dataset in datasets:
     count = len(dataset)
     if count > 5:
       count = 5
-    for n in range(count):
+    for n in range(0, count):
       shuffle(dataset)
 
-      dataset_str = DATASET_LABEL_PREFIX + class_code + ' ' + ' '.join(str(x) for x in dataset)
+      dataset_str = DATASET_LABEL_PREFIX + text_code + ' ' + ' '.join(str(x.strip()) for x in dataset)
+      print(dataset_str)
       generated_datasets.append(dataset_str)
 
-def retrieve_products(class_code, keywords):
+def retrieve_products(text_code, keywords):
   for keyword in keywords:
     keyword_data = keyword['text']
     keyword_data.strip()
@@ -94,7 +113,8 @@ def retrieve_products(class_code, keywords):
       continue
     dataset = retrieve_dataset(keyword_data)
     print('retrieve_dataset() Done : ' + keyword['text'])
-    convert_dataset_as_fasttext(class_code, dataset)
+    # print(dataset)
+    convert_dataset_as_fasttext(text_code, dataset)
 
 def retrieve_dataset(keyword):
   offset = 0
@@ -133,21 +153,31 @@ def make_dataset():
   datasets_total = len(generated_datasets)
   eval_data_count = int(datasets_total / 6)
 
-  print(datasets_total)
-  print(datasets_total - eval_data_count)
-  print(eval_data_count)
+  print('total : ' + str(datasets_total))
+  print('training : ' + str(datasets_total - eval_data_count))
+  print('evaluation : ' + str(eval_data_count))
 
+  i = 0
   # datasets for evaluation
-  f = open("text_classification_model.eval", 'w')
-  for i in range(0, eval_data_count):
-    f.write(generated_datasets[i] + '\n')
-  f.close()
+  try:
+    f = codecs.open('text_classification_model.eval', 'w', 'utf-8')
+    for i in range(0, eval_data_count):
+      f.write(generated_datasets[i] + '\n')
+  except IOError:
+    print('eval_file write error : ' + str(i) + '' + generated_datasets[i])
+  finally:
+    f.close()
 
+  i = 0
   # datasets for training
-  f = open("text_classification_model.train", 'w')
-  for i in range(eval_data_count, datasets_total):
-    f.write(generated_datasets[i] + '\n')
-  f.close()
+  try:
+    f = codecs.open('text_classification_model.train', 'w', 'utf-8')
+    for i in range(0, eval_data_count):
+      f.write(generated_datasets[i] + '\n')
+  except IOError:
+    print('train_file write error : ' + str(i) + '' + generated_datasets[i])
+  finally:
+    f.close()
 
   print('Generating dataset Done !!')
 
@@ -191,11 +221,11 @@ def predict_test():
 
 def start():
   try:
-    make_dataset()
-    make_model()
-    save_model_to_storage()
+    # make_dataset()
+    # make_model()
+    # save_model_to_storage()
 
-    # predict_test()
+    predict_test()
 
   except Exception as e:
     log.error(str(e))
