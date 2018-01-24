@@ -87,7 +87,6 @@ def convert_dataset_as_fasttext(class_code, datasets):
       generated_datasets.append(dataset_str)
 
 def retrieve_products(class_code, keywords):
-  i = 0
   for keyword in keywords:
     keyword_data = keyword['text']
     keyword_data.strip()
