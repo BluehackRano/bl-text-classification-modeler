@@ -222,11 +222,11 @@ def predict_test():
 
 def start():
   try:
-    # make_dataset()
-    # make_model()
-    # save_model_to_storage()
+    make_dataset()
+    make_model()
+    save_model_to_storage()
 
-    predict_test()
+    # predict_test()
 
   except Exception as e:
     log.error(str(e))
