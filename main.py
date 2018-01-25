@@ -19,7 +19,7 @@ RELEASE_MODE = os.environ['RELEASE_MODE']
 AWS_ACCESS_KEY = os.environ['AWS_ACCESS_KEY'].replace('"', '')
 AWS_SECRET_ACCESS_KEY = os.environ['AWS_SECRET_ACCESS_KEY'].replace('"', '')
 AWS_TEXT_CLASSIFICATION_MODEL_BUCKET = 'bluelens-style-model'
-AWS_BUCKET_CLASSIFICATION_TEXT_PATH = 'classification/text/'
+AWS_BUCKET_CLASSIFICATION_TEXT_PATH = 'classification/text/dev/'
 
 options = {
   'REDIS_SERVER': REDIS_SERVER,
@@ -172,7 +172,7 @@ def make_dataset():
   # datasets for training
   try:
     f = codecs.open('text_classification_model.train', 'w', 'utf-8')
-    for i in range(0, eval_data_count):
+    for i in range(eval_data_count, datasets_total):
       f.write(generated_datasets[i] + '\n')
   except IOError:
     print('train_file write error : ' + str(i) + '' + generated_datasets[i])
@@ -211,7 +211,8 @@ def predict_test():
   model = fasttext.load_model(model_data)
   test_data = ['v넥 허니니트 니트 긴팔 v 허니니트 knit 반가다 브이넥 (니트)#12게이지#루즈핏#여리여리',
                '큐트체크미니스커트(밴딩) 버클 데일리 벨트미니스커트(도톰, A라인)  # 벨트탈부착#속바지 체크 12-2김유난 핫바디 미니스커트  #치마바지',
-               '겨울원피스 베이비돌 원피스 김다은 11-2김세희 12-1김세희 꽃원피스 걸스 벨벳뷔스티에OPS 미니원피스']
+               '겨울원피스 베이비돌 원피스 김다은 11-2김세희 12-1김세희 꽃원피스 걸스 벨벳뷔스티에OPS 미니원피스',
+               ]
 
   results = model.predict_proba(test_data)
   print_results(results)
