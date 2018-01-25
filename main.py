@@ -21,6 +21,8 @@ AWS_SECRET_ACCESS_KEY = os.environ['AWS_SECRET_ACCESS_KEY'].replace('"', '')
 AWS_TEXT_CLASSIFICATION_MODEL_BUCKET = 'bluelens-style-model'
 AWS_BUCKET_CLASSIFICATION_TEXT_PATH = 'classification/text/dev/'
 
+REDIS_PRODUCT_TEXT_MODEL_PROCESS_QUEUE = 'bl:product:text:model:process:queue'
+
 options = {
   'REDIS_SERVER': REDIS_SERVER,
   'REDIS_PASSWORD': REDIS_PASSWORD
@@ -50,7 +52,7 @@ def delete_pod():
   spawn.delete(data)
 
 def save_model_to_storage():
-  log.info('save_model_to_storage')
+  log.info('save_text_model_to_s3_storage')
 
   model_file_name = TEXT_CLASSIFICATION_MODEL + '.bin'
 
@@ -77,7 +79,7 @@ def save_tmp_text_dataset_to_local(text_code, datasets):
   finally:
     f.close()
 
-def retrieve_keywords(text_code):
+def retrieve_keywords_with_text_code(text_code):
   offset = 0
   limit = 100
   while True:
@@ -90,9 +92,7 @@ def retrieve_keywords(text_code):
       offset = offset + limit
 
 def convert_dataset_as_fasttext(text_code, datasets):
-  log.info('convert_dataset_as_fasttext')
-
-  save_tmp_text_dataset_to_local(text_code, datasets)
+  # save_tmp_text_dataset_to_local(text_code, datasets)
 
   for dataset in datasets:
     count = len(dataset)
@@ -111,18 +111,21 @@ def retrieve_products(text_code, keywords):
     keyword_data.strip()
     if keyword_data == '':
       continue
-    dataset = retrieve_dataset(keyword_data)
-    print('retrieve_dataset() Done : ' + keyword['text'])
-    # print(dataset)
+    dataset = retrieve_products_from_db_and_update(keyword_data)
+    print('retrieve_products_from_db_and_update() : ' + keyword['text'])
+
     convert_dataset_as_fasttext(text_code, dataset)
 
-def retrieve_dataset(keyword):
+def retrieve_products_from_db_and_update(keyword):
   offset = 0
   limit = 100
 
   dataset = []
   while True:
-    products = product_api.get_products_by_keyword(keyword, offset=offset, limit=limit)
+    products = product_api.get_products_by_keyword(keyword,
+                                                   only_text=True,
+                                                   is_processed_for_text_class_model=False,
+                                                   offset=offset, limit=limit)
 
     for product in products:
       data = []
@@ -130,8 +133,12 @@ def retrieve_dataset(keyword):
       # data.extend(product['tags'])
       data.extend(product['cate'])
       data = list(set(data))
-      # print('' + str(product['_id']) + ': ' + keyword + ' / ' + str(data))
+
       dataset.append(data)
+
+      product['is_processed_for_text_class_model'] = True
+
+    product_api.update_products(products)
 
     if limit > len(products):
       break
@@ -145,10 +152,9 @@ def make_dataset():
 
   classes = text_api.get_classes()
   for text_code in classes:
-    retrieve_keywords(text_code['code'])
+    retrieve_keywords_with_text_code(text_code['code'])
 
   shuffle(generated_datasets)
-  # print(generated_datasets)
 
   datasets_total = len(generated_datasets)
   eval_data_count = int(datasets_total / 6)
@@ -193,7 +199,6 @@ def make_model():
   valid_data = TEXT_CLASSIFICATION_MODEL + '.eval'
 
   model = fasttext.supervised(train_data, TEXT_CLASSIFICATION_MODEL, epoch=50, lr=1.0, word_ngrams=2, bucket=5000000)
-  print(model)
   result = model.test(valid_data)
 
   print_model_results(result)
@@ -230,7 +235,13 @@ def start():
     make_model()
     save_model_to_storage()
 
-    predict_test()
+    res = rconn.blpop([REDIS_PRODUCT_TEXT_MODEL_PROCESS_QUEUE])
+    if (res != None):
+      log.info('SUCCESS : bl-text-classification-modeler')
+    else:
+      log.info('FAIL : bl-text-classification-modeler')
+
+    # predict_test()
 
   except Exception as e:
     log.error(str(e))
