@@ -1,7 +1,6 @@
 from __future__ import print_function
 
 import os
-import codecs
 from util import s3
 import redis
 import fasttext
@@ -9,6 +8,7 @@ from bluelens_log import Logging
 from bluelens_spawning_pool import spawning_pool
 from stylelens_dataset.texts import Texts
 from stylelens_product.products import Products
+import codecs
 
 from random import shuffle
 
@@ -192,7 +192,8 @@ def make_model():
   train_data = TEXT_CLASSIFICATION_MODEL + '.train'
   valid_data = TEXT_CLASSIFICATION_MODEL + '.eval'
 
-  model = fasttext.supervised(train_data, TEXT_CLASSIFICATION_MODEL, epoch=25, lr=1.0)
+  model = fasttext.supervised(train_data, TEXT_CLASSIFICATION_MODEL, epoch=50, lr=1.0, word_ngrams=2, bucket=5000000)
+  print(model)
   result = model.test(valid_data)
 
   print_model_results(result)
@@ -212,6 +213,9 @@ def predict_test():
   test_data = ['v넥 허니니트 니트 긴팔 v 허니니트 knit 반가다 브이넥 (니트)#12게이지#루즈핏#여리여리',
                '큐트체크미니스커트(밴딩) 버클 데일리 벨트미니스커트(도톰, A라인)  # 벨트탈부착#속바지 체크 12-2김유난 핫바디 미니스커트  #치마바지',
                '겨울원피스 베이비돌 원피스 김다은 11-2김세희 12-1김세희 꽃원피스 걸스 벨벳뷔스티에OPS 미니원피스',
+               '모찌 브이넥 가디건',
+               '스틱 실버 귀걸이',
+               '항공점퍼랑 패딩이랑 (양면패딩)',
                ]
 
   results = model.predict_proba(test_data)
@@ -226,7 +230,7 @@ def start():
     make_model()
     save_model_to_storage()
 
-    # predict_test()
+    predict_test()
 
   except Exception as e:
     log.error(str(e))
