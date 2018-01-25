@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 export ORG="bluelens"
-export IMAGE="bl-object-classifier"
+export IMAGE="bl-text-classification-modeler"
 export TAG='prod'
 
 docker login
