@@ -112,9 +112,11 @@ def retrieve_products(text_code, keywords):
     keyword_data.strip()
     if keyword_data == '':
       continue
-    dataset = retrieve_products_from_db_and_update(keyword_data)
     print('retrieve_products_from_db_and_update() : ')
-    print(keyword['text'].encode('utf8'))
+    print(keyword['text'].encode('utf-8'))
+    dataset = retrieve_products_from_db_and_update(keyword_data)
+
+    # print(str(text_code) + ' : ' + keyword_data + ' / ')
 
     convert_dataset_as_fasttext(text_code, dataset)
 
@@ -122,11 +124,11 @@ def retrieve_products_from_db_and_update(keyword):
   offset = 0
   limit = 100
 
-  dataset = []
+  datasets = []
   while True:
     products = product_api.get_products_by_keyword(keyword,
                                                    only_text=True,
-                                                   is_processed_for_text_class_model=False,
+                                                   is_processed_for_text_class_model=True,
                                                    offset=offset, limit=limit)
 
     for product in products:
@@ -136,7 +138,7 @@ def retrieve_products_from_db_and_update(keyword):
       data.extend(product['cate'])
       data = list(set(data))
 
-      dataset.append(data)
+      datasets.append(data)
 
       product['is_processed_for_text_class_model'] = True
 
@@ -147,10 +149,10 @@ def retrieve_products_from_db_and_update(keyword):
     else:
       offset = offset + limit
 
-  return dataset
+  return datasets
 
 def make_dataset():
-  print('make_dataset')
+  log.info('make_dataset')
 
   classes = text_api.get_classes()
   for text_code in classes:
@@ -172,7 +174,7 @@ def make_dataset():
     for i in range(0, eval_data_count):
       f.write(generated_datasets[i] + '\n')
   except IOError:
-    print('eval_file write error : ' + str(i) + '' + generated_datasets[i])
+    print('eval_file write error : ' + str(i) + '' + generated_datasets[i].unicode('utf-8'))
   finally:
     f.close()
 
@@ -183,7 +185,7 @@ def make_dataset():
     for i in range(eval_data_count, datasets_total):
       f.write(generated_datasets[i] + '\n')
   except IOError:
-    print('train_file write error : ' + str(i) + '' + generated_datasets[i])
+    print('train_file write error : ' + str(i) + '' + generated_datasets[i].unicode('utf-8'))
   finally:
     f.close()
 
@@ -200,7 +202,7 @@ def make_model():
   train_data = TEXT_CLASSIFICATION_MODEL + '.train'
   valid_data = TEXT_CLASSIFICATION_MODEL + '.eval'
 
-  model = fasttext.supervised(train_data, TEXT_CLASSIFICATION_MODEL, epoch=50, lr=1.0, word_ngrams=2, bucket=5000000)
+  model = fasttext.supervised(train_data, TEXT_CLASSIFICATION_MODEL, epoch=25, lr=1.0, word_ngrams=2, bucket=5000000)
   result = model.test(valid_data)
 
   print_model_results(result)
@@ -217,12 +219,15 @@ def predict_test():
   model_data = TEXT_CLASSIFICATION_MODEL + '.bin'
 
   model = fasttext.load_model(model_data)
-  test_data = [u'v넥 허니니트 니트 긴팔 v 허니니트 knit 반가다 브이넥 (니트)#12게이지#루즈핏#여리여리',
-               u'큐트체크미니스커트(밴딩) 버클 데일리 벨트미니스커트(도톰, A라인)  # 벨트탈부착#속바지 체크 12-2김유난 핫바디 미니스커트  #치마바지',
-               u'겨울원피스 베이비돌 원피스 김다은 11-2김세희 12-1김세희 꽃원피스 걸스 벨벳뷔스티에OPS 미니원피스',
-               u'모찌 브이넥 가디건',
-               u'스틱 실버 귀걸이',
-               u'항공점퍼랑 패딩이랑 (양면패딩)',
+  test_data = [
+                '롱패딩',
+                '블리블링 블라우스, 여신 블라우스',
+                'v넥 허니니트 니트 긴팔 v 허니니트 knit 반가다 브이넥 (니트)#12게이지#루즈핏#여리여리',
+                '큐트체크미니스커트(밴딩) 버클 데일리 벨트미니스커트(도톰, A라인)  # 벨트탈부착#속바지 체크 12-2김유난 핫바디 미니스커트  #치마바지',
+                '겨울원피스 베이비돌 원피스 김다은 11-2김세희 12-1김세희 꽃원피스 걸스 벨벳뷔스티에OPS 미니원피스',
+                '모찌 브이넥 가디건',
+                '스틱 실버 귀걸이',
+                '항공점퍼랑 패딩이랑 (양면패딩)',
                ]
 
   results = model.predict_proba(test_data)
@@ -239,11 +244,8 @@ def start():
 
     predict_test()
 
-    res = rconn.blpop([REDIS_PRODUCT_TEXT_MODEL_PROCESS_QUEUE])
-    if (res != None):
+    if (rconn.blpop([REDIS_PRODUCT_TEXT_MODEL_PROCESS_QUEUE])):
       log.info('SUCCESS : bl-text-classification-modeler')
-    else:
-      log.info('FAIL : bl-text-classification-modeler')
 
   except Exception as e:
     log.error(str(e))
