@@ -128,7 +128,7 @@ def retrieve_products_from_db_and_update(keyword):
   while True:
     products = product_api.get_products_by_keyword(keyword,
                                                    only_text=True,
-                                                   is_processed_for_text_class_model=True,
+                                                   is_processed_for_text_class_model=False,
                                                    offset=offset, limit=limit)
 
     for product in products:
