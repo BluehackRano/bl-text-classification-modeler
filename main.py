@@ -18,8 +18,8 @@ REDIS_PASSWORD = os.environ['REDIS_PASSWORD']
 RELEASE_MODE = os.environ['RELEASE_MODE']
 AWS_ACCESS_KEY = os.environ['AWS_ACCESS_KEY'].replace('"', '')
 AWS_SECRET_ACCESS_KEY = os.environ['AWS_SECRET_ACCESS_KEY'].replace('"', '')
-AWS_TEXT_CLASSIFICATION_MODEL_BUCKET = 'bluelens-style-model'
-AWS_BUCKET_CLASSIFICATION_TEXT_PATH = 'classification/text/dev/'
+AWS_MODEL_BUCKET = 'bluelens-style-model'
+AWS_BUCKET_CLASSIFICATION_TEXT_PATH = 'classification/text/' + RELEASE_MODE + '/'
 
 REDIS_PRODUCT_TEXT_MODEL_PROCESS_QUEUE = 'bl:product:text:model:process:queue'
 
@@ -58,7 +58,7 @@ def save_model_to_storage():
 
   file = os.path.join(os.getcwd(), model_file_name)
   try:
-    return storage.upload_file_to_bucket(AWS_TEXT_CLASSIFICATION_MODEL_BUCKET, file,
+    return storage.upload_file_to_bucket(AWS_MODEL_BUCKET, file,
                                          AWS_BUCKET_CLASSIFICATION_TEXT_PATH + model_file_name)
   except:
     log.error('upload error')
