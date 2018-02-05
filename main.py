@@ -121,15 +121,13 @@ def retrieve_products(text_code, keywords):
     convert_dataset_as_fasttext(text_code, dataset)
 
 def retrieve_products_from_db_and_update(keyword):
-  offset = 0
-  limit = 100
-
   datasets = []
   while True:
     products = product_api.get_products_by_keyword(keyword,
-                                                   only_text=True,
-                                                   is_processed_for_text_class_model=False,
-                                                   offset=offset, limit=limit)
+                                                   only_text=True)
+
+    if 0 == len(products):
+      break
 
     for product in products:
       data = []
@@ -143,11 +141,6 @@ def retrieve_products_from_db_and_update(keyword):
       product['is_processed_for_text_class_model'] = True
 
     product_api.update_products(products)
-
-    if limit > len(products):
-      break
-    else:
-      offset = offset + limit
 
   return datasets
 
