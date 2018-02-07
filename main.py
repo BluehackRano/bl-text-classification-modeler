@@ -8,20 +8,29 @@ from bluelens_log import Logging
 from bluelens_spawning_pool import spawning_pool
 from stylelens_dataset.texts import Texts
 from stylelens_product.products import Products
+from stylelens_product.models import Models
 import codecs
 
 from random import shuffle
 
 SPAWN_ID = os.environ['SPAWN_ID']
+RELEASE_MODE = os.environ['RELEASE_MODE']
+
 REDIS_SERVER = os.environ['REDIS_SERVER']
 REDIS_PASSWORD = os.environ['REDIS_PASSWORD']
-RELEASE_MODE = os.environ['RELEASE_MODE']
+REDIS_CRAWL_VERSION = 'bl:crawl:version'
+REDIS_CRAWL_VERSION_LATEST = 'latest'
+
 AWS_ACCESS_KEY = os.environ['AWS_ACCESS_KEY'].replace('"', '')
 AWS_SECRET_ACCESS_KEY = os.environ['AWS_SECRET_ACCESS_KEY'].replace('"', '')
 AWS_MODEL_BUCKET = 'bluelens-style-model'
 AWS_BUCKET_CLASSIFICATION_TEXT_PATH = 'classification/text/' + RELEASE_MODE + '/'
 
-REDIS_PRODUCT_TEXT_MODEL_PROCESS_QUEUE = 'bl:product:text:model:process:queue'
+def get_latest_crawl_version():
+  value = rconn.hget(REDIS_CRAWL_VERSION, REDIS_CRAWL_VERSION_LATEST)
+  return value
+
+# REDIS_PRODUCT_TEXT_MODEL_PROCESS_QUEUE = 'bl:product:text:model:process:queue'
 
 options = {
   'REDIS_SERVER': REDIS_SERVER,
@@ -34,6 +43,8 @@ storage = s3.S3(AWS_ACCESS_KEY, AWS_SECRET_ACCESS_KEY)
 
 text_api = Texts()
 product_api = Products()
+model_api = Models()
+PRODUCT_MODELS_TYPE = 'text-classification'
 
 TEXT_CLASSIFICATION_MODEL = 'text_classification_model'
 DATASET_LABEL_PREFIX = '__label__'
@@ -163,7 +174,7 @@ def make_dataset():
   i = 0
   # datasets for evaluation
   try:
-    f = codecs.open('text_classification_model.eval', 'w', 'utf-8')
+    f = codecs.open(TEXT_CLASSIFICATION_MODEL + '_temp.eval', 'w', 'utf-8')
     for i in range(0, eval_data_count):
       f.write(generated_datasets[i] + '\n')
   except IOError:
@@ -174,7 +185,7 @@ def make_dataset():
   i = 0
   # datasets for training
   try:
-    f = codecs.open('text_classification_model.train', 'w', 'utf-8')
+    f = codecs.open(TEXT_CLASSIFICATION_MODEL + '_temp.train', 'w', 'utf-8')
     for i in range(eval_data_count, datasets_total):
       f.write(generated_datasets[i] + '\n')
   except IOError:
@@ -182,7 +193,16 @@ def make_dataset():
   finally:
     f.close()
 
-  print('Generating dataset Done !!')
+  log.info('temp dataset generated')
+
+  os.system('cat ' + TEXT_CLASSIFICATION_MODEL + '_temp.eval '
+                                                 '| sed -e "s/\([.\[\!?,\'~+&*@#$%=/{}()]\)/ /g" '
+                                                 '| tr "[:upper:]" "[:lower:]" > ' + TEXT_CLASSIFICATION_MODEL + '.eval')
+  os.system('cat ' + TEXT_CLASSIFICATION_MODEL + '_temp.train '
+                                                 '| sed -e "s/\([.\[\!?,\'~+&*@#$%=/{}()]\)/ /g" '
+                                                 '| tr "[:upper:]" "[:lower:]" > ' + TEXT_CLASSIFICATION_MODEL + '.train')
+  log.info('dataset normalized !')
+
 
 def print_model_results(result):
     print("Number of examples for test: " + str(result.nexamples))
@@ -231,14 +251,27 @@ def predict_test():
 
 def start():
   try:
+    version_id = get_latest_crawl_version()
+    # doing
+    model = {
+      'status': 'doing'
+    }
+    model_api.update_model(PRODUCT_MODELS_TYPE, version_id, model)
+    log.info('Doing : bl-text-classification-modeler')
+
     make_dataset()
     make_model()
     save_model_to_storage()
 
     predict_test()
 
-    if (rconn.blpop([REDIS_PRODUCT_TEXT_MODEL_PROCESS_QUEUE])):
-      log.info('SUCCESS : bl-text-classification-modeler')
+    # done
+    model['status'] = 'done'
+    model_api.update_model(PRODUCT_MODELS_TYPE, version_id, model)
+    log.info('Done : bl-text-classification-modeler')
+
+    # if (rconn.blpop([REDIS_PRODUCT_TEXT_MODEL_PROCESS_QUEUE])):
+    #   log.info('SUCCESS : bl-text-classification-modeler')
 
   except Exception as e:
     log.error(str(e))
@@ -249,4 +282,4 @@ if __name__ == '__main__':
     start()
   except Exception as e:
     log.error('main; ' + str(e))
-    delete_pod()
+    # delete_pod()
