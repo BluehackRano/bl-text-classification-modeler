@@ -12,6 +12,7 @@ from stylelens_product.models import Models
 import codecs
 
 from random import shuffle
+import re
 
 SPAWN_ID = os.environ['SPAWN_ID']
 RELEASE_MODE = os.environ['RELEASE_MODE']
