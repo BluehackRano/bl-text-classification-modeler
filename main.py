@@ -62,6 +62,19 @@ def delete_pod():
   spawn.setServerPassword(REDIS_PASSWORD)
   spawn.delete(data)
 
+def save_eval_to_storage():
+  log.info('save_eval_to_storage')
+
+  eval_file_name = TEXT_CLASSIFICATION_MODEL + '.eval'
+
+  file = os.path.join(os.getcwd(), eval_file_name)
+  try:
+    return storage.upload_file_to_bucket(AWS_MODEL_BUCKET, file,
+                                         AWS_BUCKET_CLASSIFICATION_TEXT_PATH + eval_file_name)
+  except:
+    log.error('upload error')
+    return None
+
 def save_model_to_storage():
   log.info('save_text_model_to_s3_storage')
 
@@ -119,12 +132,12 @@ def convert_dataset_as_fasttext(text_code, datasets):
 
 def retrieve_products(text_code, keywords):
   for keyword in keywords:
-    keyword_data = keyword['text']
+    keyword_data = keyword.get('text')
     keyword_data.strip()
     if keyword_data == '':
       continue
-    print('retrieve_products_from_db_and_update() : ')
-    print(keyword['text'].encode('utf-8'))
+    log.info('retrieve_products_from_db_and_update() : ')
+    log.info(keyword.get('text').encode('utf-8'))
     dataset = retrieve_products_from_db_and_update(keyword_data)
 
     # print(str(text_code) + ' : ' + keyword_data + ' / ')
@@ -135,16 +148,27 @@ def retrieve_products_from_db_and_update(keyword):
   datasets = []
   while True:
     products = product_api.get_products_by_keyword(keyword,
-                                                   only_text=True)
+                                                   only_text=True, is_processed_for_text_class_model=False)
 
     if 0 == len(products):
       break
 
     for product in products:
       data = []
-      data.append(product['name'])
-      # data.extend(product['tags'])
-      data.extend(product['cate'])
+
+      name = product.get('name')
+      cate = product.get('cate')
+      tags = product.get('tags')
+
+      # print('name: {name} / cate: {cate} / tags: {tags}'.format(**product))
+
+      if name is not None:
+        data.append(name)
+      if cate is not None:
+        data.extend(cate)
+      # if tags is not None:
+      #   data.extend(tags)
+
       data = list(set(data))
 
       datasets.append(data)
@@ -196,10 +220,10 @@ def make_dataset():
   log.info('temp dataset generated')
 
   os.system('cat ' + TEXT_CLASSIFICATION_MODEL + '_temp.eval '
-                                                 '| sed -e "s/\([.\[\!?,\'~+&*@#$%=/{}()]\)/ /g" '
+                                                 '| sed -e "s/\([.\[\!?,^\'~+&*@#$%=/{}\\"()]\)/ /g" '
                                                  '| tr "[:upper:]" "[:lower:]" > ' + TEXT_CLASSIFICATION_MODEL + '.eval')
   os.system('cat ' + TEXT_CLASSIFICATION_MODEL + '_temp.train '
-                                                 '| sed -e "s/\([.\[\!?,\'~+&*@#$%=/{}()]\)/ /g" '
+                                                 '| sed -e "s/\([.\[\!?,^\'~+&*@#$%=/{}\\"()]\)/ /g" '
                                                  '| tr "[:upper:]" "[:lower:]" > ' + TEXT_CLASSIFICATION_MODEL + '.train')
   log.info('dataset normalized !')
 
@@ -242,8 +266,15 @@ def predict_test():
                 '스틱 실버 귀걸이',
                 '항공점퍼랑 패딩이랑 (양면패딩)',
                ]
+  normalized_test_data = []
 
-  results = model.predict_proba(test_data)
+  for data in test_data:
+    normalized = re.sub('[^가-힝A-Za-z0-9]+', ' ', data)
+    lower = normalized.lower()
+
+    normalized_test_data.append(lower)
+
+  results = model.predict_proba(normalized_test_data)
   print_results(results)
 """"""""
 # predict test ends.
@@ -262,6 +293,7 @@ def start():
     make_dataset()
     make_model()
     save_model_to_storage()
+    save_eval_to_storage()
 
     predict_test()
 
